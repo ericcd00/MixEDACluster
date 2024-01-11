@@ -1,6 +1,6 @@
 Package: MixEDACluster
 Title: Clustering methods comparison report
-Version: 0.0.0.2
+Version: 0.0.1
 Author: Eric Canton Dominguez
 Maintainer: Eric Canton Dominguez <cantondominguezeric@gmail.com>
 Description: Clustering algorithms that can help the user understand 
@@ -16,7 +16,7 @@ Imports:
     stats,
     kamila,
     clustMixType
-License: What license is it under?
+License: 
 URL: https://github.com/ericcd00/MixEDACluster
 Encoding: UTF-8
 LazyData: true

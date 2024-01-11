@@ -1,11 +1,11 @@
 ---
 params:
   data: data
-  set_title: Title
+  set_title: set_title
   mixedData: mixedData
   ContVar: ContVar
   CatVar: CatVar
-title: "`r params$Title`"
+title: "`r params$set_title`"
 always_allow_html: true
 ---
 
@@ -104,9 +104,12 @@ mixedData <- params$mixedData
 
 ## Data information
 
-```{r data_info, echo=FALSE}
-barplot(prop.table(table(is.na(data))))
+```{r na, fig.show="hold", out.width="50%", echo = FALSE}
+barplot(prop.table(table(is.na(data))), width = 0.4)
+```
 
+
+```{r data_info, echo=FALSE}
 data <- na.omit(data)
 
 knitr::kable(head(data))
@@ -125,10 +128,16 @@ patients_mahalanobis$pvalue <- round(pchisq(patients_mahalanobis$Mahalanobis, df
 Outliers <- patients_mahalanobis[patients_mahalanobis$pvalue < 0.001, ]
 ```
 
+
 ## Outlier Detection
 
 ```{r Outliers, echo=FALSE}
-knitr::kable(Outliers)
+if (nrow(Outliers) > 0 ) {
+  knitr::kable(Outliers)
+} else {
+  print("No outliers detected")
+}
+
 ```
 
 
@@ -144,9 +153,9 @@ datainfo <- data.frame("Samples" = nrow(data_standardized),
 knitr::kable(datainfo)
 ```
 
-## Hierarchical Clustering
+```{r HC, include=FALSE}
+### HIERARCHICAL CLUSTERING MODEL
 
-```{r HC, echo=FALSE}
 hc_list <- list()
 hc_G_values <- 2:10
 
@@ -164,11 +173,7 @@ silhouette_score_hc <- function(G){
   mean(ss[, 3])
 }
 
-
 avg_sil_hc <- sapply(hc_G_values, silhouette_score_hc)
-plot(hc_G_values, type='b', avg_sil_hc, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, 
-     main="Silhouette Score (Hierarchical Clustering)")
 Max_silhouette_hc <- max(avg_sil_hc)
 
 cut <- cutree(h, k = (which.max(avg_sil_hc)+1))
@@ -177,7 +182,7 @@ plot(h, labels = NULL, hang = 0.1, check = TRUE,
      axes = TRUE, frame.plot = FALSE, ann = TRUE,
      main = "Cluster Dendrogram",
      sub = NULL, xlab = "Samples")
-rect.hclust(h , k = 2, border = 2:8)
+rect.hclust(h , k = which.max(avg_sil_hc)+1, border = 2:8)
 
 continuous_data_hc <- mutate(continuous_data, cluster = cut)
 
@@ -191,10 +196,9 @@ CH_HC <- calinhara(continuous_data, cut)
 data$HCCluster <- as.factor(cut)
 ```
 
-
-## Model-Based Clustering
-
 ```{r MBC, include=FALSE}
+### MODEL-BASED CLUSTERING MODEL
+
 MBC_list <- list()
 MClust_G_values <- 2:10
 
@@ -224,8 +228,6 @@ for (G in MClust_G_values) {
   BIC_MBC <- lapply(MBC_list, BIC)
 }
 
-plot(MClust_G_values, BIC_MBC, xlab = 'Clusters', ylab = 'BIC from MBC')
-
 
 # Davies-Bouldin's Index
 DB_MBC <- index.DB(data_standardized, MBC_list[[as.character(which.max(avg_sil_MBC)+1)]]$classification, 
@@ -242,33 +244,9 @@ summary(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]])
 data$MBCcluster <- as.factor(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]]$classification)
 ```
 
-```{r MBC_plots, echo=FALSE}
-
-plot(MClust_G_values, type='b', avg_sil_MBC, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', 
-     frame=FALSE, main="Silhouette Score (MBC)")
-
-
-plot(MClust_G_values, BIC_MBC, xlab = 'Clusters', ylab = 'BIC from MBC')
-
-# Cluster visualization
-plot(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], what="classification")
-summary(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]])
-
-fviz_cluster(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], data = data_standardized,
-             palette = c("#2E9FDF", "#38BB72"), 
-             geom = c("point", "text"),
-             pointsize = 1.5,
-             ellipse.type = "convex",
-             main = "Cluster Plot (MBC)",
-             ggtheme = theme_bw()
-)
-
-```
-
-## K-means Clustering
 
 ```{r kmeans, include = FALSE}
+### K-MEANS CLUSTERING MODEL
 
 kmeans_list <- list()
 kmeans_G_values <- 2:10
@@ -313,29 +291,9 @@ CH_Kmeans <- calinhara(continuous_data, kmeans_list[[as.character(which.max(avg_
 data$Kmeanscluster <- as.factor(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]]$cluster)
 ```
 
-```{r kmeans_plots, echo = FALSE}
+```{r kamila, include = FALSE}
+### KAMILA CLUSTERING MODEL
 
-plot(kmeans_G_values, type='b', avg_sil_kmeans, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (K-means)")
-
-plot(kmeans_G_values, bic_k, xlab = 'Clusters', ylab = 'BIC from kmeans')
-
-
-# Cluster visualization
-fviz_cluster(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]], data = continuous_data,
-             palette = c("#2E9FDF", "#38BB72"), 
-             geom = c("point", "text"),
-             pointsize = 1.5,
-             ellipse.type = "convex",
-             main = "Cluster Plot (K-means)",
-             ggtheme = theme_bw()
-)
-
-```
-
-## Kamila Clustering
-
-```{r kamila, echo = FALSE}
 kamila_list <- list()
 numClust_values <- 2:10
 
@@ -402,22 +360,9 @@ kamila_ps_df <- data.frame("Clusters" = c((1:length(kamila_ps))+1),
                            "ps" = kamila_ps)
 ```
 
-```{r kamila_plot, echo = FALSE}
-
-plot(numClust_values, type='b', avg_sil_kamila, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (Kamila)")
-
-plot(pcamix, coloring.ind=data$kamilacluster)
-
-plot(kamila_ps_df$Clusters, kamila_ps_df$ps, type='b', ylab = "Prediction Strength", 
-     xlab = "Number of Clusters", frame=FALSE, main="Prediction Strength Values (Kamila)")
-```
-
-
-
-## K-prototypes Clustering
-
 ```{r kproto, include = FALSE}
+### K-PROTOTYPES CLUSTERING MODEL
+
 kproto_list <- list()
 Kp <- 2:10
 
@@ -459,14 +404,109 @@ data$kprotocluster <- as.factor(kproto_list[[as.character(which.max(avg_sil_kpro
 
 ```
 
-```{r kproto_plots, echo = FALSE}
+
+## Silhouette Scores
+
+```{r silhouette, fig.show="hold", out.width="50%", echo = FALSE}
+par(mar = c(4, 4, 4, 4) + 0.1)
+
+plot(hc_G_values, type='b', avg_sil_hc, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, 
+     main="Silhouette Score (Hierarchical Clustering)")
+
+plot(MClust_G_values, type='b', avg_sil_MBC, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', 
+     frame=FALSE, main="Silhouette Score (MBC)")
+
+plot(kmeans_G_values, type='b', avg_sil_kmeans, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (K-means)")
+
+plot(numClust_values, type='b', avg_sil_kamila, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (Kamila)")
 
 plot(Kp, type='b', avg_sil_kproto, xlab='Number of clusters', 
      ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (k-Prototypes)")
+```
 
 
+## Clustering Models
+
+```{r Cluster_final, echo=FALSE}
+Cluster_comparisons_Final <- data.frame(
+              "Model" = c("Hierarchical Clustering", "MBC", "K-means", "Kamila", "K-Prototypes"),
+              "Nº of clusters" = c(which.max(avg_sil_hc)+1, which.max(avg_sil_MBC)+1, which.max(avg_sil_kmeans)+1, which.max(avg_sil_kamila)+1, which.max(avg_sil_kproto)+1),
+              "Silhouette coefficient" = c(round(Max_silhouette_hc, 3), round(Max_silhouette_MBC, 3), round(Max_silhouette_kMeans, 3), round(Max_silhouette_kamila, 3), round(Max_silhouette_kproto, 3)),
+              "Davies-Bouldin index" = c(round(DB_HC$DB, 3), round(DB_MBC$DB, 3), round(DB_Kmeans$DB, 3), round(DB_Kamila$DB, 3), round(DB_Kproto$DB, 3)),
+              "Calinski-Harabasz" = c(round(CH_HC, 3), round(CH_MBC, 3), round(CH_Kmeans, 3), round(CH_Kamila, 3), round(CH_Kproto, 3)))
+
+knitr::kable(Cluster_comparisons_Final)
+```
+
+### Hierarchical Clustering
+
+```{r HC_plots, echo=FALSE}
+
+plot(h, labels = NULL, hang = 0.1, check = TRUE,
+     axes = TRUE, frame.plot = FALSE, ann = TRUE,
+     main = "Cluster Dendrogram",
+     sub = NULL, xlab = "Samples")
+rect.hclust(h , k = which.max(avg_sil_hc)+1, border = 2:8)
+
+```
+
+### Model-Based Clustering
+
+```{r MBC_plots, echo=FALSE}
+plot(MClust_G_values, BIC_MBC, xlab = 'Clusters', ylab = 'BIC from MBC')
+
+# Cluster visualization
+fviz_cluster(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], data = data_standardized,
+             palette = c("#2E9FDF", "#38BB72", "#5C2FAF", "#BB70CA", "#5575CA", 
+                         "#BB7063", "#25A8C2", "#9270CA", "#BB702A", "#A32332"), 
+             geom = c("point", "text"),
+             pointsize = 1.5,
+             ellipse.type = "convex",
+             main = "Cluster Plot (MBC)",
+             ggtheme = theme_bw()
+)
+
+```
+
+### K-means Clustering
+
+```{r kmeans_plots, echo = FALSE}
+plot(kmeans_G_values, bic_k, xlab = 'Clusters', ylab = 'BIC from kmeans')
+
+
+# Cluster visualization
+fviz_cluster(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]], data = continuous_data,
+             palette = c("#2E9FDF", "#38BB72", "#5C2FAF", "#BB70CA", "#5575CA", 
+                         "#BB7063", "#25A8C2", "#9270CA", "#BB702A", "#A32332"), 
+             geom = c("point", "text"),
+             pointsize = 1.5,
+             ellipse.type = "convex",
+             main = "Cluster Plot (K-means)",
+             ggtheme = theme_bw()
+)
+
+```
+
+### Kamila Clustering
+
+```{r kamila_plot, echo = FALSE}
+plot(kamila_ps_df$Clusters, kamila_ps_df$ps, type='b', ylab = "Prediction Strength", 
+     xlab = "Number of Clusters", frame=FALSE, main="Prediction Strength Values (Kamila)")
+
+plot(pcamix, coloring.ind=data$kamilacluster)
+```
+
+### K-prototypes Clustering
+
+```{r kproto_plots, echo = FALSE}
 plot(pcamix, coloring.ind=data$kprotocluster)
 ```
+
+
 
 ## Model Comparisons
 
@@ -498,7 +538,9 @@ ARIDF <- data.frame ("Comparisons" = c("HC vs MBC", "HC vs K-means", "HC vs Kami
 
 ARIDF <- ARIDF[order(ARIDF$ARI, decreasing = TRUE),]
 
-knitr::kable(ARIDF)
+```
 
+```{r ARI_table, echo = FALSE}
+knitr::kable(ARIDF)
 ```
 
