@@ -7,8 +7,8 @@ Description: Clustering algorithms that can help the user understand
     how the data is organized.
 Imports:
     ggplot2,
-    gridExtra,
     rmarkdown,
+    gridExtra,
     GGally,
     stats,
     hopkins,

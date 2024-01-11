@@ -1,14 +1,104 @@
 ---
-title: "Clustering Comparisons"
-author: "Eric Canton Dominguez"
-date: "`r Sys.Date()`"
-output: html_document
+params:
+  data: data
+  set_title: Title
+  mixedData: mixedData
+  ContVar: ContVar
+  CatVar: CatVar
+title: "`r params$Title`"
+always_allow_html: true
 ---
 
 ```{r options, include=FALSE}
+if(!require(rmarkdown)){
+  install.packages("rmarkdown") #Export tables
+  library(rmarkdown)
+}
+
+if(!require(knitr)){
+  install.packages("knitr") #Export tables
+  library(knitr)
+}
+
+if(!require(gridExtra)){
+  install.packages("gridExtra") #Export tables
+  library(gridExtra)
+}
+
+if(!require(ggplot2)){
+  install.packages("ggplot2") # Graph creation
+  library(ggplot2)
+}
+
+if(!require(DataExplorer)){
+  install.packages("DataExplorer") # EDA plots
+  library(DataExplorer)
+}
+
+if(!require(GGally)){
+  install.packages("GGally") # Correlation Graph creation
+  library(GGally)
+}
+
+if(!require(hopkins)){
+  install.packages("hopkins") # Hopkins Statistic
+  library(hopkins)
+}
+
+if(!require(mclust)){
+  install.packages("mclust") # Model-Based clustering
+  library(mclust)
+}
+
+if(!require(stats)){
+  install.packages("stats") # K-means and Hierarchical clustering
+  library(stats)
+}
+
+if(!require(kamila)){ 
+  install.packages("kamila") # KAMILA clustering
+  library(kamila)
+}
+
+if(!require(clustMixType)){
+  install.packages("clustMixType") # K-prototypes clustering
+  library(clustMixType)
+}
+
+if(!require(clusterSim)){
+  install.packages("clusterSim") # Calinski-Harabasz index
+  library(clusterSim)
+}
+
+if(!require(fpc)){
+  install.packages("fpc") # Davies-Bouldin index
+  library(fpc)
+}
+
+if(!require(dplyr)){
+  install.packages("dplyr") # Functionality
+  library(dplyr)
+}
+
+if(!require(ggfortify)){
+  install.packages("ggfortify") # Autoplot for PCA
+  library(ggfortify)
+}
+
+if(!require(factoextra)){
+  install.packages("factoextra") # Principal Component Analysis
+  library(factoextra)
+}
+
+if(!require(PCAmixdata)){
+  install.packages("PCAmixdata") # PCA for Mixed Data
+  library(PCAmixdata)
+}
+
 data <- params$data
 ContVar <- params$ContVar
 CatVar <- params$CatVar
+mixedData <- params$mixedData
 ```
 
 
@@ -27,8 +117,11 @@ categorical_data <- data[, CatVar]
 
 data_standardized <- as.data.frame(scale(continuous_data))
 
+data_blind <- data[, c(-14, -15)]
 
 patients_mahalanobis <- round(data.frame(Mahalanobis = mahalanobis(continuous_data, colMeans(continuous_data), cov(continuous_data))), 4)
+patients_mahalanobis$pvalue <- round(pchisq(patients_mahalanobis$Mahalanobis, df=3, lower.tail=FALSE), 6)
+
 Outliers <- patients_mahalanobis[patients_mahalanobis$pvalue < 0.001, ]
 ```
 
@@ -87,21 +180,7 @@ plot(h, labels = NULL, hang = 0.1, check = TRUE,
 rect.hclust(h , k = 2, border = 2:8)
 
 continuous_data_hc <- mutate(continuous_data, cluster = cut)
-ggplot(continuous_data_hc, aes(x=age, y = chol, color = factor(cluster))) + geom_point() +
-  labs(title = "Age ~ Cholesterol. Hierarchical Clustering",
-       theme = theme_bw(),
-       theme(panel.background = element_blank()),
-       x = "Age", y = "Cholesterol",
-       guides(color = guide_legend(title = "Cluster"))) +
-  theme(axis.line = element_line(color='black'),
-        plot.background = element_blank(),
-        panel.background = element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.border = element_blank()) +
-  scale_color_brewer(palette="Set2")
 
-datadb$HCCluster <- as.factor(cut)
 
 # Davies-Bouldin's Index
 DB_HC <- index.DB(continuous_data, cut, d=NULL, centrotypes="centroids", p=2, q=2)
@@ -109,13 +188,13 @@ DB_HC <- index.DB(continuous_data, cut, d=NULL, centrotypes="centroids", p=2, q=
 # Calinski-Harabasz index
 CH_HC <- calinhara(continuous_data, cut)
 
-
+data$HCCluster <- as.factor(cut)
 ```
 
 
 ## Model-Based Clustering
 
-```{r MBC, echo=FALSE}
+```{r MBC, include=FALSE}
 MBC_list <- list()
 MClust_G_values <- 2:10
 
@@ -137,7 +216,7 @@ avg_sil_MBC <- sapply(MClust_G_values, silhouette_score_MBC)
 plot(MClust_G_values, type='b', avg_sil_MBC, xlab='Number of clusters', 
      ylab='Average Silhouette Scores', 
      frame=FALSE, main="Silhouette Score (MBC)")
-Max_silhouette_MBC <- max()
+Max_silhouette_MBC <- max(avg_sil_MBC)
 
 # BIC
 for (G in MClust_G_values) {
@@ -160,6 +239,22 @@ CH_MBC <- calinhara(data_standardized, MBC_list[[as.character(which.max(avg_sil_
 plot(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], what="classification")
 summary(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]])
 
+data$MBCcluster <- as.factor(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]]$classification)
+```
+
+```{r MBC_plots, echo=FALSE}
+
+plot(MClust_G_values, type='b', avg_sil_MBC, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', 
+     frame=FALSE, main="Silhouette Score (MBC)")
+
+
+plot(MClust_G_values, BIC_MBC, xlab = 'Clusters', ylab = 'BIC from MBC')
+
+# Cluster visualization
+plot(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], what="classification")
+summary(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]])
+
 fviz_cluster(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], data = data_standardized,
              palette = c("#2E9FDF", "#38BB72"), 
              geom = c("point", "text"),
@@ -168,12 +263,13 @@ fviz_cluster(MBC_list[[as.character(which.max(avg_sil_MBC)+1)]], data = data_sta
              main = "Cluster Plot (MBC)",
              ggtheme = theme_bw()
 )
-```
 
+```
 
 ## K-means Clustering
 
-```{kmeans, echo = FALSE}
+```{r kmeans, include = FALSE}
+
 kmeans_list <- list()
 kmeans_G_values <- 2:10
 
@@ -192,8 +288,6 @@ silhouette_score_kmeans <- function(kmeans_G_values){
 }
 
 avg_sil_kmeans <- sapply(kmeans_G_values, silhouette_score_kmeans)
-plot(kmeans_G_values, type='b', avg_sil_kmeans, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (K-means)")
 Max_silhouette_kMeans <- max(avg_sil_kmeans)
 
 # BIC
@@ -209,14 +303,23 @@ bic_k <- sapply(kmeans_G_values, FUN =
                   function(k) 
                     kmeansBIC(kmeans(continuous_data, centers = k, nstart = 20, iter.max = 25)))
 
-plot(kmeans_G_values, bic_k, xlab = 'Clusters', ylab = 'BIC from kmeans')
-
 # Davies-Bouldin's Index
 DB_Kmeans <- index.DB(continuous_data, kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]]$cluster, d=NULL, 
                       centrotypes="centroids", p=2, q=2)
 
 # Calinski-Harabasz index
 CH_Kmeans <- calinhara(continuous_data, kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]]$cluster)
+
+data$Kmeanscluster <- as.factor(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]]$cluster)
+```
+
+```{r kmeans_plots, echo = FALSE}
+
+plot(kmeans_G_values, type='b', avg_sil_kmeans, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (K-means)")
+
+plot(kmeans_G_values, bic_k, xlab = 'Clusters', ylab = 'BIC from kmeans')
+
 
 # Cluster visualization
 fviz_cluster(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]], data = continuous_data,
@@ -230,12 +333,9 @@ fviz_cluster(kmeans_list[[as.character(which.max(avg_sil_kmeans)+1)]], data = co
 
 ```
 
-
-
 ## Kamila Clustering
 
-```{kamila, echo = FALSE}
-if (mixedData) {
+```{r kamila, echo = FALSE}
 kamila_list <- list()
 numClust_values <- 2:10
 
@@ -261,8 +361,6 @@ silhouette_score_kamila <- function(K){
 }
 
 avg_sil_kamila <- sapply(numClust_values, silhouette_score_kamila)
-plot(numClust_values, type='b', avg_sil_kamila, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (Kamila)")
 Max_silhouette_kamila <- max(avg_sil_kamila)
 
 # Davies-Bouldin's Index
@@ -273,17 +371,16 @@ DB_Kamila <- index.DB(data_standardized, kamila_list[[as.character(which.max(avg
 CH_Kamila <- calinhara(data_standardized, kamila_list[[as.character(which.max(avg_sil_kamila)+1)]]$finalMemb)
 
 
-datadb$kamilacluster <- as.factor(kamila_list[[as.character(which.max(avg_sil_kamila)+1)]]$finalMemb)
+data$kamilacluster <- as.factor(kamila_list[[as.character(which.max(avg_sil_kamila)+1)]]$finalMemb)
 
 # PCA for MIXED DATA
-split <- splitmix(datadb_blind)
+split <- splitmix(data_blind)
 pcamix <- PCAmix(X.quanti=split$X.quanti,
                  X.quali=split$X.quali,
                  rename.level=TRUE, 
                  graph=TRUE, ndim=2)
 
 
-plot(pcamix, coloring.ind=datadb$kamilacluster)
 
 # PS plot
 kamila_ps <- NULL
@@ -303,41 +400,42 @@ suppressWarnings(
 
 kamila_ps_df <- data.frame("Clusters" = c((1:length(kamila_ps))+1),
                            "ps" = kamila_ps)
+```
+
+```{r kamila_plot, echo = FALSE}
+
+plot(numClust_values, type='b', avg_sil_kamila, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (Kamila)")
+
+plot(pcamix, coloring.ind=data$kamilacluster)
 
 plot(kamila_ps_df$Clusters, kamila_ps_df$ps, type='b', ylab = "Prediction Strength", 
      xlab = "Number of Clusters", frame=FALSE, main="Prediction Strength Values (Kamila)")
-} else {
-
-  print("El archivo no contiene variables categoricas.")
-
-  }
 ```
+
 
 
 ## K-prototypes Clustering
 
-```{kproto, echo = FALSE}
-if (mixedData) {
+```{r kproto, include = FALSE}
 kproto_list <- list()
 Kp <- 2:10
 
 for (protoclust in Kp) {
   set.seed("1")
-  kproto <- kproto(datadb_blind, protoclust, nstart = 5)
+  kproto <- kproto(data_blind, protoclust, nstart = 5)
   kproto_list[[as.character(protoclust)]] <- kproto
 }
 
 # Silhouette score
 silhouette_score_kproto <- function(Kp){
   set.seed("1")
-  kproto <- kproto(datadb_blind, Kp, nstart = 5)
-  ss <- silhouette(kproto$cluster, dist(datadb_blind))
+  kproto <- kproto(data_blind, Kp, nstart = 5)
+  ss <- silhouette(kproto$cluster, dist(data_blind))
   mean(ss[, 3])
 }
 
 avg_sil_kproto <- sapply(Kp, silhouette_score_kproto)
-plot(Kp, type='b', avg_sil_kproto, xlab='Number of clusters', 
-     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (k-Prototypes)")
 Max_silhouette_kproto <- max(avg_sil_kproto)
 
 # Davies-Bouldin's Index
@@ -357,29 +455,50 @@ result <- data.frame(Member, result_df)
 result
 
 
-# Cluster visualization
-ggplot(fit, aes(x = age, y = chol, color = fit_df)) +
-  geom_point() +
-  labs(title = "Average Age of the patients (age) ~ Average Cholesterol (chol)",
-       theme = theme_bw(),
-       theme(panel.background = element_blank()),
-       x = "Average Age of the patients (age)", y = "Average Cholesterol (chol)",
-       guides(color = guide_legend(title = "Cluster"))) +
-  theme(axis.line = element_line(color='black'),
-        plot.background = element_blank(),
-        panel.background = element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.border = element_blank()) +
-  scale_color_brewer(palette="Set2")
+data$kprotocluster <- as.factor(kproto_list[[as.character(which.max(avg_sil_kproto)+1)]]$cluster)
 
-datadb$kprotocluster <- as.factor(kproto_list[[as.character(which.max(avg_sil_kproto)+1)]]$cluster)
+```
 
-plot(pcamix, coloring.ind=datadb$kprotocluster)
-} else {
+```{r kproto_plots, echo = FALSE}
 
-  print("El archivo no contiene variables categoricas.")
+plot(Kp, type='b', avg_sil_kproto, xlab='Number of clusters', 
+     ylab='Average Silhouette Scores', frame=FALSE, main="Silhouette Score (k-Prototypes)")
 
-  }
+
+plot(pcamix, coloring.ind=data$kprotocluster)
+```
+
+## Model Comparisons
+
+```{r ARI, include = FALSE}
+ARIDF <- data.frame ("Comparisons" = c("HC vs MBC", "HC vs K-means", "HC vs Kamila", "HC vs K-prototypes", 
+                                       "MBC vs K-means", "MBC vs Kamila", "MBC vs K-prototypes",
+                                       "K-means vs Kamila", "K-means vs K-prototypes",
+                                       "Kamila vs K-prototypes"),
+                     "ARI" = round(c(adjustedRandIndex(data$HCCluster, 
+                                                       data$MBCcluster), 
+                               adjustedRandIndex(data$HCCluster, 
+                                                 data$Kmeanscluster),
+                               adjustedRandIndex(data$HCCluster, 
+                                                 data$kamilacluster),
+                               adjustedRandIndex(data$HCCluster, 
+                                                 data$kprotocluster),
+                               adjustedRandIndex(data$MBCcluster, 
+                                                 data$Kmeanscluster),
+                               adjustedRandIndex(data$MBCcluster, 
+                                                 data$kamilacluster),
+                               adjustedRandIndex(data$MBCcluster, 
+                                                 data$kprotocluster),
+                               adjustedRandIndex(data$Kmeanscluster, 
+                                                 data$kamilacluster),
+                               adjustedRandIndex(data$Kmeanscluster, 
+                                                 data$kprotocluster),
+                               adjustedRandIndex(data$kamilacluster, 
+                                                 data$kprotocluster)), 4))
+
+ARIDF <- ARIDF[order(ARIDF$ARI, decreasing = TRUE),]
+
+knitr::kable(ARIDF)
+
 ```
 
