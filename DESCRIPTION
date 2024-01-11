@@ -8,14 +8,16 @@ Description: Clustering algorithms that can help the user understand
 Imports:
     ggplot2,
     rmarkdown,
-    gridExtra,
-    GGally,
     stats,
     hopkins,
     mclust,
     stats,
     kamila,
-    clustMixType
+    clustMixType,
+    knitr,
+    clusterSim,
+    fpc,
+    dplyr
 License: 
 URL: https://github.com/ericcd00/MixEDACluster
 Encoding: UTF-8
@@ -23,3 +25,4 @@ LazyData: true
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+

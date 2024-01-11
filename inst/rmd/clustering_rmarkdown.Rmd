@@ -16,28 +16,13 @@ if(!require(rmarkdown)){
 }
 
 if(!require(knitr)){
-  install.packages("knitr") #Export tables
+  install.packages("knitr") # Tables Format
   library(knitr)
-}
-
-if(!require(gridExtra)){
-  install.packages("gridExtra") #Export tables
-  library(gridExtra)
 }
 
 if(!require(ggplot2)){
   install.packages("ggplot2") # Graph creation
   library(ggplot2)
-}
-
-if(!require(DataExplorer)){
-  install.packages("DataExplorer") # EDA plots
-  library(DataExplorer)
-}
-
-if(!require(GGally)){
-  install.packages("GGally") # Correlation Graph creation
-  library(GGally)
 }
 
 if(!require(hopkins)){
@@ -78,11 +63,6 @@ if(!require(fpc)){
 if(!require(dplyr)){
   install.packages("dplyr") # Functionality
   library(dplyr)
-}
-
-if(!require(ggfortify)){
-  install.packages("ggfortify") # Autoplot for PCA
-  library(ggfortify)
 }
 
 if(!require(factoextra)){
