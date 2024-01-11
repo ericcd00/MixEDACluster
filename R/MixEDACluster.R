@@ -1,3 +1,5 @@
+#' @importFrom utils browseURL
+#' @import rmarkdown
 
 MixEDACluster <- function(data,
                           mixedData,
@@ -7,19 +9,18 @@ MixEDACluster <- function(data,
                           OutputFile,
                           Title) {
 
-  report_dir <- system.file("rmd/clustering_markdown.rmd", 
-                            package = "MixEDACluster")  
-  
+  report_dir <- system.file("rmd/clustering_markdown.rmd",
+                            package = "MixEDACluster")
+
   suppressWarnings(render(
     input = report_dir,
-    output_format = output_format,
     OutputFile = OutputFile,
     OutputDir = OutputDir,
-    params = list(data = data, mixedData = mixedData, ContVar = ContVar, 
+    params = list(data = data, mixedData = mixedData, ContVar = ContVar,
                   CatVar = CatVar, Title = Title)
   ))
-  
+
   report_path <- path.expand(file.path(OutputDir, OutputFile))
   browseURL(report_path)
-  
+
 }
